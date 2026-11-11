@@ -15,7 +15,7 @@ import {
   lessonProgress,
   courseRatings,
   purchases,
-  coupons,
+  seats,
   refunds,
   videoWatchEvents,
   LessonProgressStatus,
@@ -440,7 +440,7 @@ function asDayString(when: Date) {
 }
 
 /**
- * What the learner is offered if they want their money back, or null if this
+ * What the student is offered if they want their money back, or null if this
  * purchase cannot be refunded.
  */
 function getRefundOffer(userId: number, course: { id: number }) {
@@ -473,10 +473,10 @@ function getRefundOffer(userId: number, course: { id: number }) {
   }
 
   const claimedSeat = db
-    .select({ id: coupons.id })
-    .from(coupons)
+    .select({ id: seats.id })
+    .from(seats)
     .where(
-      and(eq(coupons.purchaseId, purchase.id), isNotNull(coupons.redeemedAt))
+      and(eq(seats.purchaseId, purchase.id), isNotNull(seats.claimedAt))
     )
     .get();
 

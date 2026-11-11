@@ -5,7 +5,7 @@ import { getCurrentUserId } from "~/lib/session";
 import { db } from "~/db";
 import {
   courses,
-  coupons,
+  seats,
   lessons,
   modules,
   purchases,
@@ -85,20 +85,20 @@ function lastDayOfWindow(purchasedAtIso: string): string {
 }
 
 /**
- * The confirmation the learner gets in their inbox. There is no mail
+ * The confirmation the student gets in their inbox. There is no mail
  * transport wired up yet, so the built message goes to the server log.
  */
 function buildRefundRequestEmail(input: {
-  learnerName: string;
-  learnerEmail: string;
+  studentName: string;
+  studentEmail: string;
   courseTitle: string;
   amount: number;
 }) {
   return {
-    to: input.learnerEmail,
+    to: input.studentEmail,
     subject: `Refund requested — ${input.courseTitle}`,
     body: [
-      `Hi ${input.learnerName},`,
+      `Hi ${input.studentName},`,
       "",
       `We have your refund request for "${input.courseTitle}".`,
       `The refund is for ${formatPrice(input.amount)}, the amount you paid.`,
@@ -124,13 +124,13 @@ export async function action({ params, request }: Route.ActionArgs) {
     throw data("Course not found", { status: 404 });
   }
 
-  const learner = db
+  const student = db
     .select()
     .from(users)
     .where(eq(users.id, currentUserId))
     .get();
 
-  if (!learner) {
+  if (!student) {
     throw data("User not found", { status: 404 });
   }
 
@@ -147,12 +147,12 @@ export async function action({ params, request }: Route.ActionArgs) {
   }
 
   // A seat that came out of a team licence, and has been claimed, belongs to
-  // the team — the learner cannot hand it back on their own.
+  // the team — the student cannot hand it back on their own.
   const claimedSeat = db
-    .select({ id: coupons.id })
-    .from(coupons)
+    .select({ id: seats.id })
+    .from(seats)
     .where(
-      and(eq(coupons.purchaseId, purchase.id), isNotNull(coupons.redeemedAt))
+      and(eq(seats.purchaseId, purchase.id), isNotNull(seats.claimedAt))
     )
     .get();
 
@@ -217,8 +217,8 @@ export async function action({ params, request }: Route.ActionArgs) {
     .get();
 
   const email = buildRefundRequestEmail({
-    learnerName: learner.name,
-    learnerEmail: learner.email,
+    studentName: student.name,
+    studentEmail: student.email,
     courseTitle: course.title,
     amount: purchase.amountPaid,
   });
