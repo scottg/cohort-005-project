@@ -1,0 +1,3 @@
+# The Refund is the only record of a cancellation
+
+We store no separate cancellation or refund-request record: a Refund row exists if and only if Seats were cancelled, and it carries the reason. Because cancelling is only possible when a Seat is eligible, a cancellation and its Refund are the same event, and a second record would duplicate that. Giving back a Seat from a Team Purchase is different: it is a Returned Seat, it moves no money, and it creates no Refund. A Seat from an Individual Purchase can't be returned: cancelling it, by the Purchaser or by the person they gave it to, always Refunds the Purchaser.

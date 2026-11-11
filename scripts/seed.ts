@@ -10,6 +10,7 @@ import {
   UserRole,
   CourseStatus,
   LessonProgressStatus,
+  RefundStatus,
   QuestionType,
   TeamMemberRole,
 } from "../app/db/schema";
@@ -73,7 +74,7 @@ async function seed() {
     DROP TABLE IF EXISTS quiz_questions;
     DROP TABLE IF EXISTS quizzes;
     DROP TABLE IF EXISTS lesson_progress;
-    DROP TABLE IF EXISTS coupons;
+    DROP TABLE IF EXISTS seats;
     DROP TABLE IF EXISTS team_members;
     DROP TABLE IF EXISTS teams;
     DROP TABLE IF EXISTS refunds;
@@ -109,7 +110,7 @@ async function seed() {
   // cohort generated further down, which supplies volume. Anything that picks a
   // student out of a list does it by email, never by array position — see
   // studentByEmail — so appending or inserting students never silently
-  // re-points a coupon redemption at someone else.
+  // re-points a claimed seat at someone else.
 
   const [admin] = db
     .insert(schema.users)
@@ -190,7 +191,7 @@ async function seed() {
       },
       {
         name: "Liam Thompson",
-        email: "liam.thompson@student.dev",
+        email: "liam@example.com",
         role: UserRole.Student,
         avatarUrl: "https://api.dicebear.com/9.x/avataaars/svg?seed=liam",
         createdAt: daysAgo(30),
@@ -386,7 +387,7 @@ By the end of this course, you'll understand why TypeScript has become the defau
       categoryId: catBySlug["programming"].id,
       status: CourseStatus.Published,
       coverImageUrl: "/images/course-typescript.svg",
-      price: 4999,
+      price: 7900,
       createdAt: daysAgo(355),
       updatedAt: daysAgo(10),
     })
@@ -2229,7 +2230,7 @@ This course is still in draft while the cluster examples are rewritten against t
     .values({
       userId: students[0].id, // Emma — bought course 1 individually
       courseId: course1.id,
-      amountPaid: 4999,
+      amountPaid: 7900,
       country: "US",
       createdAt: daysAgo(50),
     })
@@ -2260,7 +2261,7 @@ This course is still in draft while the cluster examples are rewritten against t
     .values({
       userId: students[2].id, // Olivia — bought course 1 individually
       courseId: course1.id,
-      amountPaid: 4999,
+      amountPaid: 7900,
       country: "US",
       createdAt: daysAgo(35),
     })
@@ -2270,7 +2271,7 @@ This course is still in draft while the cluster examples are rewritten against t
     .values({
       userId: students[4].id, // Sophia — bought course 1 individually
       courseId: course1.id,
-      amountPaid: 4999,
+      amountPaid: 7900,
       country: "US",
       createdAt: daysAgo(15),
     })
@@ -2278,8 +2279,8 @@ This course is still in draft while the cluster examples are rewritten against t
 
   console.log(`Created ${countRows(schema.purchases)} individual purchases.`);
 
-  // ─── Teams, Team Members, and Coupons ───
-  // Bossy McBossface bought 5 team seats for course 2; Olivia and Liam redeemed coupons
+  // ─── Teams, Team Members, and Seats ───
+  // Bossy McBossface bought 5 team seats for course 2; Olivia and Liam claimed seats
 
   const [team1] = db
     .insert(schema.teams)
@@ -2309,8 +2310,8 @@ This course is still in draft while the cluster examples are rewritten against t
     .returning()
     .all();
 
-  // Generate 5 coupons for the team purchase
-  const couponCodes = [
+  // Generate 5 seats for the team purchase
+  const seatCodes = [
     "TEAM-NODEJS-A1B2C3",
     "TEAM-NODEJS-D4E5F6",
     "TEAM-NODEJS-G7H8I9",
@@ -2318,10 +2319,10 @@ This course is still in draft while the cluster examples are rewritten against t
     "TEAM-NODEJS-M3N4O5",
   ];
 
-  const seededCoupons = db
-    .insert(schema.coupons)
+  const seededSeats = db
+    .insert(schema.seats)
     .values(
-      couponCodes.map((code) => ({
+      seatCodes.map((code) => ({
         teamId: team1.id,
         courseId: course2.id,
         code,
@@ -2332,28 +2333,28 @@ This course is still in draft while the cluster examples are rewritten against t
     .returning()
     .all();
 
-  // Redeem 2 of the 5 coupons. Redeemers are named by email, not by position in
-  // the students array — position would silently re-point these redemptions at
+  // Claim 2 of the 5 seats. Students are named by email, not by position in
+  // the students array — position would silently re-point these claimed seats at
   // different people the moment a student is inserted rather than appended.
   // Both already have an enrolment for course 2 from the enrolments section.
-  db.update(schema.coupons)
+  db.update(schema.seats)
     .set({
-      redeemedByUserId: studentByEmail("olivia.martinez@student.dev").id,
-      redeemedAt: daysAgo(30),
+      claimedByUserId: studentByEmail("olivia.martinez@student.dev").id,
+      claimedAt: daysAgo(30),
     })
-    .where(eq(schema.coupons.id, seededCoupons[0].id))
+    .where(eq(schema.seats.id, seededSeats[0].id))
     .run();
 
-  db.update(schema.coupons)
+  db.update(schema.seats)
     .set({
-      redeemedByUserId: studentByEmail("liam.thompson@student.dev").id,
-      redeemedAt: daysAgo(25),
+      claimedByUserId: studentByEmail("liam@example.com").id,
+      claimedAt: daysAgo(25),
     })
-    .where(eq(schema.coupons.id, seededCoupons[1].id))
+    .where(eq(schema.seats.id, seededSeats[1].id))
     .run();
 
   console.log(
-    `Created 1 team with Bossy McBossface as admin, 1 team purchase, and ${seededCoupons.length} coupons (${countRows(schema.coupons, isNotNull(schema.coupons.redeemedByUserId))} redeemed, ${countRows(schema.coupons, isNull(schema.coupons.redeemedByUserId))} available).`
+    `Created 1 team with Bossy McBossface as admin, 1 team purchase, and ${seededSeats.length} seats (${countRows(schema.seats, isNotNull(schema.seats.claimedByUserId))} claimed, ${countRows(schema.seats, isNull(schema.seats.claimedByUserId))} available).`
   );
 
   // ─── Generated history ───
@@ -2608,8 +2609,8 @@ This course is still in draft while the cluster examples are rewritten against t
 
   // ─── Further team purchases ───
   // Two more seat purchases so team revenue is not a single row, in mixed
-  // redemption states: one team most of the way through its seats, one that has
-  // bought and redeemed nothing yet.
+  // claim states: one team most of the way through its seats, one that has
+  // bought and claimed nothing yet.
 
   function createTeamPurchase(
     adminEmail: string,
@@ -2617,7 +2618,7 @@ This course is still in draft while the cluster examples are rewritten against t
     seats: number,
     codePrefix: string,
     purchasedDaysAgo: number,
-    redeemerEmails: string[]
+    studentEmails: string[]
   ) {
     const teamAdmin = studentByEmail(adminEmail);
 
@@ -2648,8 +2649,8 @@ This course is still in draft while the cluster examples are rewritten against t
       .returning()
       .all();
 
-    const teamCoupons = db
-      .insert(schema.coupons)
+    const teamSeats = db
+      .insert(schema.seats)
       .values(
         Array.from({ length: seats }, (_, i) => ({
           teamId: team.id,
@@ -2662,41 +2663,41 @@ This course is still in draft while the cluster examples are rewritten against t
       .returning()
       .all();
 
-    // Redeemers named by email, for the reason given at the first team above.
-    redeemerEmails.forEach((email, i) => {
-      const redeemer = studentByEmail(email);
-      const redeemedDaysAgo = Math.max(0, purchasedDaysAgo - (i + 1) * 2);
+    // Students named by email, for the reason given at the first team above.
+    studentEmails.forEach((email, i) => {
+      const student = studentByEmail(email);
+      const claimedDaysAgo = Math.max(0, purchasedDaysAgo - (i + 1) * 2);
 
-      db.update(schema.coupons)
+      db.update(schema.seats)
         .set({
-          redeemedByUserId: redeemer.id,
-          redeemedAt: daysAgo(redeemedDaysAgo),
+          claimedByUserId: student.id,
+          claimedAt: daysAgo(claimedDaysAgo),
         })
-        .where(eq(schema.coupons.id, teamCoupons[i].id))
+        .where(eq(schema.seats.id, teamSeats[i].id))
         .run();
 
       db.insert(schema.teamMembers)
         .values({
           teamId: team.id,
-          userId: redeemer.id,
+          userId: student.id,
           role: TeamMemberRole.Member,
-          createdAt: daysAgo(redeemedDaysAgo),
+          createdAt: daysAgo(claimedDaysAgo),
         })
         .run();
 
       db.insert(schema.enrollments)
         .values({
-          userId: redeemer.id,
+          userId: student.id,
           courseId: course.id,
-          enrolledAt: daysAgo(redeemedDaysAgo),
+          enrolledAt: daysAgo(claimedDaysAgo),
         })
         .run();
     });
 
-    return { team, purchase, coupons: teamCoupons };
+    return { team, purchase, seats: teamSeats };
   }
 
-  // Eight seats on TypeScript, six redeemed.
+  // Eight seats on TypeScript, six claimed.
   createTeamPurchase(
     "ava.nakamura@student.dev",
     course1,
@@ -2713,7 +2714,7 @@ This course is still in draft while the cluster examples are rewritten against t
     ]
   );
 
-  // Four seats on Design Systems, bought during launch week, none redeemed yet.
+  // Four seats on Design Systems, bought during launch week, none claimed yet.
   createTeamPurchase(
     "marta.novak@student.dev",
     course3,
@@ -2722,6 +2723,65 @@ This course is still in draft while the cluster examples are rewritten against t
     4,
     []
   );
+
+  // ─── Liam's Refund Request ───
+  // One student with an Open Refund Request. The dates count back from
+  // today, so the fourteen-day refund window is still open whenever you seed.
+
+  const liam = studentByEmail("liam@example.com");
+  const [liamPurchase] = db
+    .insert(schema.purchases)
+    .values({
+      userId: liam.id,
+      courseId: course1.id,
+      amountPaid: 7900,
+      country: null,
+      createdAt: daysAgo(9),
+    })
+    .returning()
+    .all();
+  db.insert(schema.enrollments)
+    .values({
+      userId: liam.id,
+      courseId: course1.id,
+      enrolledAt: daysAgo(9),
+    })
+    .run();
+  db.insert(schema.lessonProgress)
+    .values([
+      ...course1LessonIds.slice(0, 3).map((lessonId, i) => ({
+        userId: liam.id,
+        lessonId,
+        status: LessonProgressStatus.Completed,
+        completedAt: daysAgo(8 - i),
+      })),
+      {
+        userId: liam.id,
+        lessonId: course1LessonIds[3],
+        status: LessonProgressStatus.InProgress,
+        completedAt: null,
+      },
+    ])
+    .run();
+  db.insert(schema.courseRatings)
+    .values({
+      userId: liam.id,
+      courseId: course1.id,
+      rating: 4,
+      createdAt: daysAgo(6),
+      updatedAt: daysAgo(6),
+    })
+    .run();
+  db.insert(schema.refunds)
+    .values({
+      purchaseId: liamPurchase.id,
+      status: RefundStatus.Open,
+      reason: "Bought the wrong one, I meant the advanced course.",
+      requestedAt: daysAgo(4),
+    })
+    .run();
+
+  console.log("Created Liam's Refund Request.");
 
   // ─── Flush watch events ───
   // Batched: the heartbeat makes these by far the largest table, and one
@@ -2775,7 +2835,7 @@ This course is still in draft while the cluster examples are rewritten against t
     `  Purchases: ${countRows(schema.purchases)} (${countRows(schema.purchases, gte(schema.purchases.createdAt, sevenDaysAgo))} in the last 7 days), spanning ${historyDays} days`
   );
   console.log(
-    `  Teams: ${countRows(schema.teams)}, coupons: ${countRows(schema.coupons)} (${countRows(schema.coupons, isNotNull(schema.coupons.redeemedByUserId))} redeemed)`
+    `  Teams: ${countRows(schema.teams)}, seats: ${countRows(schema.seats)} (${countRows(schema.seats, isNotNull(schema.seats.claimedByUserId))} claimed)`
   );
 }
 
